@@ -2,20 +2,49 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>ТВ</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            font-family: -apple-system, sans-serif;
+        }
+        .btn {
+            background: #0077FF;
+            color: #fff;
+            padding: 16px 40px;
+            border-radius: 14px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn:active {
+            background: #0055CC;
+        }
+    </style>
 </head>
-<body style="margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;">
+<body>
+    <a class="btn" href="https://tv.mail.ru/online/" target="_blank" rel="noopener">
+        📺 Открыть ТВ
+    </a>
+    
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
+        tg.expand();
         
-        // Сразу открываем tv.mail.ru в браузере Telegram
-        tg.openLink('https://tv.mail.ru/online/');
-        
-        // И закрываем Mini App
-        tg.close();
+        // Кнопка Назад
+        tg.BackButton.show();
+        tg.BackButton.onClick(() => tg.close());
     </script>
 </body>
 </html>
