@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>ТВ в Telegram</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow-x: hidden;
+        }
+        #player-container {
+            width: 100%;
+            background: #000;
+            position: relative;
+        }
+        #player-container video {
+            width: 100%;
+            display: block;
+            background: #000;
+        }
+        #pip-btn {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            padding: 8px 14px;
+            font-size: 14px;
+            cursor: pointer;
+            z-index: 10;
+            backdrop-filter: blur(10px);
+            display: none; /* Показываем только если поддерживается */
+        }
+        #pip-btn.show { display: block; }
+        #channel-list {
+            padding: 12px;
+        }
+        #channel-list h2 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            opacity: 0.8;
+        }
+        .channel {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 4px;
+        }
+        .channel:hover, .channel:active { background: rgba(255,255,255,0.1); }
+        .channel.active { background: rgba(0, 150, 255, 0.3); }
+        .channel-logo {
+            width: 48px; height: 48px;
+            border-radius: 8px;
+            object-fit: contain;
+            background: rgba(255,255,255,0.1);
+        }
+        .channel-info { flex: 1; }
+        .channel-name { font-size: 16px; font-weight: 500; }
+        .channel-desc { font-size: 12px; opacity: 0.5; margin-top: 2px; }
+        .channel-status {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #4caf50;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="player-container">
+        <video id="video" playsinline autoplay muted></video>
+        <button id="pip-btn" title="Картинка в картинке">📺 PiP</button>
+    </div>
+
+    <div id="channel-list">
+        <h2>📡 Федеральные каналы</h2>
+        <div id="channels"></div>
+    </div>
+
+    <script>
+        // ============ СПИСОК КАНАЛОВ ============
+        // Взято из публичных легальных источников (iptv-org)
+        const channels = [
+            {
+                name: 'Первый канал',
+                logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/67/Channel_One_Russia_logo_2022.svg/512px-Channel_One_Russia_logo_2022.svg.png',
+                url: 'https://cdn-01.ott.mail.ru/abr/1tv_plus.m3u8' // Публичный поток mail.ru
+            },
+            {
+                name: 'Россия 1',
+                logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d9/Russia-1_Logo_2022.svg/512px-Russia-1_Logo_2022.svg.png',
+                url: 'https://cdn-01.ott.mail.ru/abr/russia_1.m3u8'
+            },
+            {
+                name: 'НТВ',
+                logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/NTV_Russia_logo.svg/512px-NTV_Russia_logo.svg.png',
+                url: 'https://cdn-01.ott.mail.ru/abr/ntv.m3u8'
+            },
+            {
+                name: 'РЕН ТВ',
+                logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Ren_TV_logo.svg/512px-Ren_TV_logo.svg.png',
+                url: 'https://cdn-01.ott.mail.ru/abr/ren_tv.m3u8'
+            },
+            {
+                name: 'СТС',
+                logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/CTC_tv_logo_2024.svg/512px-CTC_tv_logo_2024.svg.png',
+                url: 'https://cdn-01.ott.mail.ru/abr/sts.m3u8'
+            },
+            {
+                name: 'ТНТ',
+                logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/TNT_logo.svg/512px-TNT_logo.svg.png',
+                url: 'https://cdn-01.ott.mail.ru/abr/tnt.m3u8'
+            },
+            {
+                name: 'Матч ТВ',
+                logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Match_TV_logo.svg/512px-Match_TV_logo.svg.png',
+                url: 'https://cdn-01.ott.mail.ru/abr/match_tv.m3u8'
+            },
+            {
+                name: 'Культура',
+                logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/42/Russia-K_logo.svg/512px-Russia-K_logo.svg.png',
+                url: 'https://cdn-01.ott.mail.ru/abr/kultura.m3u8'
+            },
+            {
+                name: 'Пятый канал',
+                logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/5TV_logo.svg/512px-5TV_logo.svg.png',
+                url: 'https://cdn-01.ott.mail.ru/abr/5kanal.m3u8'
+            }
+        ];
+
+        // ============ TELEGRAM ============
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand(); // На весь экран
+
+        // ============ ПЛЕЕР ============
+        const video = document.getElementById('video');
+        const pipBtn = document.getElementById('pip-btn');
+        let hls = null;
+        let currentChannel = null;
+
+        // Проверка поддержки PiP и показ кнопки
+        if (document.pictureInPictureEnabled) {
+            pipBtn.classList.add('show');
+        }
+
+        // Обработчик PiP
+        pipBtn.addEventListener('click', async () => {
+            try {
+                if (document.pictureInPictureElement) {
+                    await document.exitPictureInPicture();
+                    pipBtn.textContent = '📺 PiP';
+                } else {
+                    await video.requestPictureInPicture();
+                    pipBtn.textContent = '❌ Закрыть';
+                }
+            } catch (err) {
+                console.log('PiP error:', err);
+            }
+        });
+
+        // Отслеживаем выход из PiP
+        video.addEventListener('leavepictureinpicture', () => {
+            pipBtn.textContent = '📺 PiP';
+        });
+
+        function playChannel(channel) {
+            // Убиваем предыдущий поток
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
+
+            currentChannel = channel;
+            video.src = '';
+
+            if (Hls.isSupported()) {
+                hls = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: true,
+                });
+                hls.loadSource(channel.url);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    video.play().catch(e => console.log('Autoplay blocked:', e));
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // iOS Safari
+                video.src = channel.url;
+                video.play().catch(e => console.log('Autoplay blocked:', e));
+            }
+
+            // Подсветка активного канала
+            document.querySelectorAll('.channel').forEach(el => el.classList.remove('active'));
+            const activeEl = document.querySelector(`[data-channel="${channel.name}"]`);
+            if (activeEl) activeEl.classList.add('active');
+
+            // Обновляем заголовок в Telegram
+            tg.HapticFeedback.impactOccurred('light');
+        }
+
+        // ============ РЕНДЕРИМ СПИСОК КАНАЛОВ ============
+        const channelsContainer = document.getElementById('channels');
+
+        channels.forEach(channel => {
+            const div = document.createElement('div');
+            div.className = 'channel';
+            div.setAttribute('data-channel', channel.name);
+            div.innerHTML = `
+                <img class="channel-logo" src="${channel.logo}" alt="${channel.name}" loading="lazy"
+                     onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22><rect fill=%22%23333%22 width=%2248%22 height=%2248%22 rx=%228%22/><text fill=%22%23fff%22 x=%2224%22 y=%2228%22 text-anchor=%22middle%22 font-size=%2218%22>📺</text></svg>'">
+                <div class="channel-info">
+                    <div class="channel-name">${channel.name}</div>
+                    <div class="channel-desc">Прямой эфир</div>
+                </div>
+                <div class="channel-status"></div>
+            `;
+            div.addEventListener('click', () => playChannel(channel));
+            channelsContainer.appendChild(div);
+        });
+
+        // Автозапуск первого канала
+        if (channels.length > 0) {
+            playChannel(channels[0]);
+        }
+
+        // ============ КНОПКА НАЗАД TELEGRAM ============
+        tg.BackButton.show();
+        tg.BackButton.onClick(() => {
+            tg.close();
+        });
+    </script>
+</body>
+</html>
