@@ -3,84 +3,203 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>ТВ</title>
+    <title>ТВ в окне</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            background: #0a0a0a;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
+            background: #000;
+            color: #fff;
             font-family: -apple-system, sans-serif;
-            gap: 14px;
-            padding: 20px;
         }
-        .btn {
+        #player-wrap {
+            position: relative;
+            background: #000;
+        }
+        video {
             width: 100%;
-            max-width: 300px;
-            text-align: center;
-            padding: 18px;
-            border-radius: 14px;
-            font-size: 17px;
+            display: block;
+            background: #000;
+            min-height: 200px;
+        }
+        #pip-btn {
+            position: absolute;
+            bottom: 14px;
+            right: 14px;
+            background: rgba(0,0,0,0.75);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 10px;
+            padding: 10px 16px;
+            font-size: 15px;
             font-weight: bold;
             cursor: pointer;
-            border: none;
-            text-decoration: none;
-            display: block;
+            z-index: 10;
+            backdrop-filter: blur(8px);
         }
-        .btn-primary {
-            background: #0077FF;
-            color: #fff;
-        }
-        .btn-secondary {
-            background: rgba(255,255,255,0.1);
-            color: #fff;
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-        .btn:active {
-            opacity: 0.7;
-        }
-        .hint {
-            color: #888;
-            font-size: 13px;
+        #status {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             text-align: center;
-            margin-top: 20px;
+            color: #aaa;
+            z-index: 5;
+            pointer-events: none;
+        }
+        #list { padding: 12px; }
+        h2 { font-size: 17px; margin: 8px 0; opacity: 0.8; }
+        .ch {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            margin-bottom: 4px;
+        }
+        .ch:active { background: rgba(255,255,255,0.1); }
+        .ch.on { background: rgba(0, 150, 255, 0.3); }
+        .ch span { font-size: 28px; }
+        .info { flex: 1; }
+        .name { font-size: 16px; font-weight: 500; }
+        .live { font-size: 12px; opacity: 0.5; }
+        .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #4caf50;
         }
     </style>
 </head>
 <body>
-    <a class="btn btn-primary" id="popup-btn">
-        📺 Плавающее окно
-    </a>
-    <a class="btn btn-secondary" href="https://tv.mail.ru/online/" target="_blank">
-        🔗 Открыть на весь экран
-    </a>
-    <p class="hint">Если окно не всплыло — нажмите «Открыть на весь экран»</p>
 
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand();
+<div id="player-wrap">
+    <video id="vid" playsinline autoplay muted></video>
+    <div id="status">Загрузка...</div>
+    <button id="pip-btn">📺 В окне</button>
+</div>
 
-        document.getElementById('popup-btn').addEventListener('click', () => {
-            // Пробуем открыть в окне с размерами
-            const w = window.open(
-                'https://tv.mail.ru/online/',
-                'tv_popup',
-                'width=480,height=320,resizable=yes,scrollbars=no,status=no'
-            );
-            
-            if (!w || w.closed) {
-                // Если блокировщик всплывающих окон сработал
-                tg.openLink('https://tv.mail.ru/online/');
+<div id="list">
+    <h2>📡 Каналы</h2>
+    <div id="channels"></div>
+</div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.ready();
+tg.expand();
+
+// Прямые ссылки — пробуем разные CDN
+const channels = [
+    { name: 'Первый канал', url: 'https://cdn-01.ott.mail.ru/abr/1tv_plus.m3u8' },
+    { name: 'Россия 1', url: 'https://cdn-01.ott.mail.ru/abr/russia_1.m3u8' },
+    { name: 'НТВ', url: 'https://cdn-01.ott.mail.ru/abr/ntv.m3u8' },
+    { name: 'СТС', url: 'https://cdn-01.ott.mail.ru/abr/sts.m3u8' },
+    { name: 'ТНТ', url: 'https://cdn-01.ott.mail.ru/abr/tnt.m3u8' },
+    { name: 'Матч ТВ', url: 'https://cdn-01.ott.mail.ru/abr/match_tv.m3u8' },
+    { name: 'РЕН ТВ', url: 'https://cdn-01.ott.mail.ru/abr/ren_tv.m3u8' },
+    { name: 'Пятый канал', url: 'https://cdn-01.ott.mail.ru/abr/5kanal.m3u8' },
+];
+
+const vid = document.getElementById('vid');
+const status = document.getElementById('status');
+const pipBtn = document.getElementById('pip-btn');
+let hls = null;
+
+// Проверяем PiP
+if (!document.pictureInPictureEnabled) {
+    pipBtn.textContent = '⚠️ PiP не поддерживается';
+    pipBtn.style.opacity = '0.6';
+}
+
+pipBtn.onclick = async () => {
+    try {
+        if (document.pictureInPictureElement) {
+            await document.exitPictureInPicture();
+            pipBtn.textContent = '📺 В окне';
+        } else {
+            await vid.requestPictureInPicture();
+            pipBtn.textContent = '❌ Закрыть окно';
+        }
+    } catch(e) {
+        pipBtn.textContent = '⚠️ Ошибка';
+        setTimeout(() => { pipBtn.textContent = '📺 В окне'; }, 2000);
+    }
+};
+
+vid.onleavepictureinpicture = () => {
+    pipBtn.textContent = '📺 В окне';
+};
+
+function play(url) {
+    if (hls) { hls.destroy(); hls = null; }
+    
+    status.textContent = 'Загрузка...';
+    status.style.display = 'block';
+    vid.style.opacity = '0.4';
+    vid.src = '';
+
+    if (Hls.isSupported()) {
+        hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: true,
+            // Пробуем обойти CORS
+            xhrSetup: function(xhr) {
+                xhr.withCredentials = false;
             }
         });
+        hls.loadSource(url);
+        hls.attachMedia(vid);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            status.style.display = 'none';
+            vid.style.opacity = '1';
+            vid.play().catch(() => {});
+        });
+        hls.on(Hls.Events.ERROR, (e, d) => {
+            if (d.fatal) {
+                status.textContent = '⚠️ Поток недоступен\nПопробуйте другой канал';
+                status.style.whiteSpace = 'pre-line';
+                vid.style.opacity = '0.2';
+            }
+        });
+    } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+        vid.src = url;
+        vid.onloadeddata = () => { status.style.display = 'none'; vid.style.opacity = '1'; };
+        vid.onerror = () => { 
+            status.textContent = '⚠️ Ошибка\nПопробуйте другой канал';
+            status.style.whiteSpace = 'pre-line';
+            vid.style.opacity = '0.2';
+        };
+        vid.play().catch(() => {});
+    } else {
+        status.textContent = '⚠️ Браузер не поддерживает HLS';
+    }
+}
 
-        tg.BackButton.show();
-        tg.BackButton.onClick(() => tg.close());
-    </script>
+// Рендерим список
+const container = document.getElementById('channels');
+channels.forEach((ch, i) => {
+    const div = document.createElement('div');
+    div.className = 'ch';
+    div.innerHTML = `<span>📺</span><div class="info"><div class="name">${ch.name}</div><div class="live">Прямой эфир</div></div><div class="dot"></div>`;
+    div.onclick = () => {
+        play(ch.url);
+        document.querySelectorAll('.ch').forEach(el => el.classList.remove('on'));
+        div.classList.add('on');
+        tg.HapticFeedback.impactOccurred('light');
+    };
+    container.appendChild(div);
+});
+
+// Автозапуск
+if (channels.length) {
+    play(channels[0].url);
+    container.firstChild.classList.add('on');
+}
+
+tg.BackButton.show();
+tg.BackButton.onClick(() => tg.close());
+</script>
 </body>
 </html>
