@@ -8,41 +8,77 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            background: #000;
+            background: #0a0a0a;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             height: 100vh;
             font-family: -apple-system, sans-serif;
+            gap: 14px;
+            padding: 20px;
         }
         .btn {
-            background: #0077FF;
-            color: #fff;
-            padding: 16px 40px;
+            width: 100%;
+            max-width: 300px;
+            text-align: center;
+            padding: 18px;
             border-radius: 14px;
-            font-size: 18px;
+            font-size: 17px;
             font-weight: bold;
             cursor: pointer;
             border: none;
             text-decoration: none;
-            display: inline-block;
+            display: block;
+        }
+        .btn-primary {
+            background: #0077FF;
+            color: #fff;
+        }
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
         }
         .btn:active {
-            background: #0055CC;
+            opacity: 0.7;
+        }
+        .hint {
+            color: #888;
+            font-size: 13px;
+            text-align: center;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <a class="btn" href="https://tv.mail.ru/online/" target="_blank" rel="noopener">
-        📺 Открыть ТВ
+    <a class="btn btn-primary" id="popup-btn">
+        📺 Плавающее окно
     </a>
-    
+    <a class="btn btn-secondary" href="https://tv.mail.ru/online/" target="_blank">
+        🔗 Открыть на весь экран
+    </a>
+    <p class="hint">Если окно не всплыло — нажмите «Открыть на весь экран»</p>
+
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
-        
-        // Кнопка Назад
+
+        document.getElementById('popup-btn').addEventListener('click', () => {
+            // Пробуем открыть в окне с размерами
+            const w = window.open(
+                'https://tv.mail.ru/online/',
+                'tv_popup',
+                'width=480,height=320,resizable=yes,scrollbars=no,status=no'
+            );
+            
+            if (!w || w.closed) {
+                // Если блокировщик всплывающих окон сработал
+                tg.openLink('https://tv.mail.ru/online/');
+            }
+        });
+
         tg.BackButton.show();
         tg.BackButton.onClick(() => tg.close());
     </script>
