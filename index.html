@@ -5,95 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>ТВ</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            background: #000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            font-family: -apple-system, sans-serif;
-            gap: 14px;
-            padding: 20px;
-        }
-        .btn {
-            width: 100%;
-            max-width: 300px;
-            text-align: center;
-            padding: 18px;
-            border-radius: 14px;
-            font-size: 17px;
-            font-weight: bold;
-            cursor: pointer;
-            border: none;
-            text-decoration: none;
-            display: block;
-            color: #fff;
-        }
-        .btn-tv {
-            background: #0077FF;
-        }
-        .btn-pip {
-            background: #FF5500;
-        }
-        .btn:active {
-            opacity: 0.7;
-        }
-        .hint {
-            color: #888;
-            font-size: 13px;
-            text-align: center;
-            margin-top: 20px;
-            padding: 0 20px;
-            line-height: 1.5;
-        }
-        .hint b {
-            color: #FF5500;
-        }
-    </style>
 </head>
-<body>
-    <a class="btn btn-tv" id="tv-btn">
-        📺 Смотреть ТВ
-    </a>
-    <a class="btn btn-pip" id="pip-btn">
-        🖼️ Картинка в картинке
-    </a>
-    <p class="hint">
-        <b>Для PiP:</b> откройте ТВ, нажмите на видео,<br>разверните на полный экран и сверните Telegram
-    </p>
-
+<body style="margin:0;background:#000;overflow:hidden;">
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
-
-        // Кнопка ТВ — открывает сайт
-        document.getElementById('tv-btn').addEventListener('click', (e) => {
-            e.preventDefault();
-            tg.openLink('https://tv.mail.ru/online/');
-        });
-
-        // Кнопка PiP — открывает видео в нативном плеере
-        document.getElementById('pip-btn').addEventListener('click', (e) => {
-            e.preventDefault();
-            // Открываем видео напрямую — Telegram подхватит в свой плеер
-            tg.openLink('https://tv.mail.ru/online/');
-            
-            // Показываем подсказку
-            setTimeout(() => {
-                tg.showPopup({
-                    title: '📺 Как включить PiP',
-                    message: '1. Нажмите на видео\n2. Разверните на весь экран\n3. Нажмите кнопку Домой\n\nВидео останется в маленьком окне!',
-                    buttons: [{type: 'ok', text: 'Понятно'}]
-                });
-            }, 500);
-        });
-
-        tg.BackButton.show();
-        tg.BackButton.onClick(() => tg.close());
+        
+        // Открываем tv.mail.ru В ЭТОМ ЖЕ ОКНЕ
+        window.location.href = 'https://tv.mail.ru/online/';
     </script>
 </body>
 </html>
