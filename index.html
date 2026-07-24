@@ -5,15 +5,113 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>ТВ</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #000; }
+        #container { width: 100%; height: 100vh; }
+        iframe { width: 100%; height: 100%; border: none; }
+        #pip-overlay {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 999999;
+            background: #FF5500;
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            padding: 14px 22px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            display: none;
+        }
+        #pip-overlay.show { display: block; }
+    </style>
 </head>
-<body style="margin:0;background:#000;overflow:hidden;">
+<body>
+    <button id="pip-overlay">📺 PiP</button>
+
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
         tg.expand();
-        
-        // Открываем tv.mail.ru В ЭТОМ ЖЕ ОКНЕ
+
+        const pipBtn = document.getElementById('pip-overlay');
+
+        // Проверяем поддержку PiP
+        if (!document.pictureInPictureEnabled) {
+            pipBtn.textContent = 'PiP не поддерживается';
+            pipBtn.classList.add('show');
+        }
+
+        // Функция для поиска видео на странице
+        function findAndPip() {
+            // Пробуем найти видео в текущем документе
+            const videos = document.querySelectorAll('video');
+            const iframes = document.querySelectorAll('iframe');
+            
+            if (videos.length > 0) {
+                const vid = videos[0];
+                pipBtn.classList.add('show');
+                
+                pipBtn.onclick = async () => {
+                    try {
+                        if (document.pictureInPictureElement) {
+                            await document.exitPictureInPicture();
+                            pipBtn.textContent = '📺 PiP';
+                        } else {
+                            await vid.requestPictureInPicture();
+                            pipBtn.textContent = '✕ Закрыть';
+                        }
+                    } catch(e) {
+                        console.log('PiP error:', e);
+                    }
+                };
+                return true;
+            }
+            
+            // Если видео нет — возможно оно в iframe
+            if (iframes.length > 0) {
+                try {
+                    const iframeVideos = iframes[0].contentDocument?.querySelectorAll('video');
+                    if (iframeVideos?.length > 0) {
+                        const vid = iframeVideos[0];
+                        pipBtn.classList.add('show');
+                        
+                        pipBtn.onclick = async () => {
+                            try {
+                                if (document.pictureInPictureElement) {
+                                    await document.exitPictureInPicture();
+                                } else {
+                                    await vid.requestPictureInPicture();
+                                }
+                            } catch(e) {
+                                console.log('PiP error:', e);
+                            }
+                        };
+                        return true;
+                    }
+                } catch(e) {
+                    // Cross-origin iframe — не можем достучаться
+                }
+            }
+            return false;
+        }
+
+        // Загружаем сайт
         window.location.href = 'https://tv.mail.ru/online/';
+
+        // После загрузки пробуем найти видео
+        setTimeout(() => {
+            if (!findAndPip()) {
+                pipBtn.textContent = '⚠️ Видео не найдено';
+                pipBtn.classList.add('show');
+            }
+        }, 5000);
+
+        tg.BackButton.show();
+        tg.BackButton.onClick(() => tg.close());
     </script>
 </body>
 </html>
