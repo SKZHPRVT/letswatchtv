@@ -12,14 +12,12 @@
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             background: #000;
             color: #fff;
-            overflow-x: hidden;
         }
-        #player-container {
-            width: 100%;
-            background: #000;
+        #player-box {
             position: relative;
+            background: #000;
         }
-        #player-container video {
+        video {
             width: 100%;
             display: block;
             background: #000;
@@ -36,279 +34,157 @@
             font-size: 14px;
             cursor: pointer;
             z-index: 10;
-            backdrop-filter: blur(10px);
             display: none;
         }
         #pip-btn.show { display: block; }
-        #error-msg {
+        .status {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             color: #fff;
             text-align: center;
-            display: none;
-            padding: 20px;
+            z-index: 5;
+            pointer-events: none;
         }
-        #channel-list {
+        #list {
             padding: 12px;
         }
-        #channel-list h2 {
-            font-size: 18px;
-            margin-bottom: 10px;
-            opacity: 0.8;
-        }
-        .channel {
+        h2 { font-size: 18px; margin-bottom: 10px; opacity: 0.8; }
+        .ch {
             display: flex;
             align-items: center;
             gap: 12px;
             padding: 12px;
             border-radius: 12px;
             cursor: pointer;
-            transition: background 0.2s;
             margin-bottom: 4px;
         }
-        .channel:hover, .channel:active { background: rgba(255,255,255,0.1); }
-        .channel.active { background: rgba(0, 150, 255, 0.3); }
-        .channel-logo {
-            width: 48px; height: 48px;
-            border-radius: 8px;
-            object-fit: contain;
-            background: rgba(255,255,255,0.1);
-            font-size: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .channel-info { flex: 1; }
-        .channel-name { font-size: 16px; font-weight: 500; }
-        .channel-desc { font-size: 12px; opacity: 0.5; margin-top: 2px; }
-        .channel-status {
+        .ch:active { background: rgba(255,255,255,0.1); }
+        .ch.on { background: rgba(0, 150, 255, 0.3); }
+        .ch span { font-size: 30px; }
+        .info { flex: 1; }
+        .name { font-size: 16px; }
+        .live { font-size: 12px; opacity: 0.5; }
+        .dot {
             width: 8px; height: 8px;
             border-radius: 50%;
             background: #4caf50;
-            flex-shrink: 0;
-        }
-        .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #fff;
-            font-size: 16px;
-            z-index: 5;
         }
     </style>
 </head>
 <body>
+<div id="player-box">
+    <div class="status" id="status">Выберите канал</div>
+    <video id="vid" playsinline autoplay muted></video>
+    <button id="pip-btn">📺 PiP</button>
+</div>
+<div id="list">
+    <h2>📡 Каналы</h2>
+    <div id="channels"></div>
+</div>
 
-    <div id="player-container">
-        <div class="loading" id="loading">⏳ Загрузка...</div>
-        <video id="video" playsinline autoplay muted></video>
-        <div id="error-msg">⚠️ Не удалось загрузить канал<br><small>Попробуйте другой</small></div>
-        <button id="pip-btn" title="Картинка в картинке">📺 PiP</button>
-    </div>
+<script>
+const tg = window.Telegram.WebApp;
+tg.ready();
+tg.expand();
 
-    <div id="channel-list">
-        <h2>📡 Телеканалы</h2>
-        <div id="channels"></div>
-    </div>
+const channels = [
+    { name: 'Первый канал', url: 'https://strm.yandex.ru/kal/1tv/1tv0.m3u8' },
+    { name: 'Россия 1', url: 'https://strm.yandex.ru/kal/russia1/russia10.m3u8' },
+    { name: 'Матч ТВ', url: 'https://strm.yandex.ru/kal/matchtv/matchtv0.m3u8' },
+    { name: 'НТВ', url: 'https://strm.yandex.ru/kal/ntv/ntv0.m3u8' },
+    { name: 'Пятый канал', url: 'https://strm.yandex.ru/kal/5tv/5tv0.m3u8' },
+    { name: 'Россия 24', url: 'https://strm.yandex.ru/kal/russia24/russia240.m3u8' },
+    { name: 'Россия К', url: 'https://strm.yandex.ru/kal/kultura/kultura0.m3u8' },
+    { name: 'Карусель', url: 'https://strm.yandex.ru/kal/karusel/karusel0.m3u8' },
+    { name: 'ОТР', url: 'https://strm.yandex.ru/kal/otr/otr0.m3u8' },
+    { name: 'ТВ Центр', url: 'https://strm.yandex.ru/kal/tvc/tvc0.m3u8' },
+    { name: 'РЕН ТВ', url: 'https://strm.yandex.ru/kal/rentv/rentv0.m3u8' },
+    { name: 'Спас', url: 'https://strm.yandex.ru/kal/spas/spas0.m3u8' },
+    { name: 'СТС', url: 'https://strm.yandex.ru/kal/sts/sts0.m3u8' },
+    { name: 'Домашний', url: 'https://strm.yandex.ru/kal/domashniy/domashniy0.m3u8' },
+    { name: 'ТВ3', url: 'https://strm.yandex.ru/kal/tv3/tv30.m3u8' },
+    { name: 'Пятница', url: 'https://strm.yandex.ru/kal/pyatnica/pyatnica0.m3u8' },
+    { name: 'Муз-ТВ', url: 'https://strm.yandex.ru/kal/muztv/muztv0.m3u8' },
+    { name: 'ТНТ', url: 'https://strm.yandex.ru/kal/tnt/tnt0.m3u8' },
+    { name: 'Звезда', url: 'https://strm.yandex.ru/kal/zvezda/zvezda0.m3u8' },
+    { name: 'Мир', url: 'https://strm.yandex.ru/kal/mir/mir0.m3u8' }
+];
 
-    <script>
-        // ============ СПИСОК КАНАЛОВ С ПУБЛИЧНЫМИ ПОТОКАМИ ============
-        const channels = [
-            {
-                name: 'Первый канал HD',
-                logo: 'https://i.imgur.com/SG9THzr.png',
-                url: 'https://strm.yandex.ru/kal/1tv/1tv0.m3u8'
-            },
-            {
-                name: 'Россия 1',
-                logo: 'https://i.imgur.com/0Xr7qEJ.png',
-                url: 'https://strm.yandex.ru/kal/russia1/russia10.m3u8'
-            },
-            {
-                name: 'Матч ТВ',
-                logo: 'https://i.imgur.com/QkVJ5Bn.png',
-                url: 'https://strm.yandex.ru/kal/matchtv/matchtv0.m3u8'
-            },
-            {
-                name: 'НТВ',
-                logo: 'https://i.imgur.com/WVq0A7j.png',
-                url: 'https://strm.yandex.ru/kal/ntv/ntv0.m3u8'
-            },
-            {
-                name: 'СТС',
-                logo: 'https://i.imgur.com/HgKjJQN.png',
-                url: 'https://strm.yandex.ru/kal/sts/sts0.m3u8'
-            },
-            {
-                name: 'ТНТ',
-                logo: 'https://i.imgur.com/fVgP8nB.png',
-                url: 'https://strm.yandex.ru/kal/tnt/tnt0.m3u8'
-            },
-            {
-                name: 'Пятый канал',
-                logo: 'https://i.imgur.com/5CKR9MK.png',
-                url: 'https://strm.yandex.ru/kal/5tv/5tv0.m3u8'
-            },
-            {
-                name: 'РЕН ТВ',
-                logo: 'https://i.imgur.com/b0PDp4p.png',
-                url: 'https://strm.yandex.ru/kal/rentv/rentv0.m3u8'
-            },
-            {
-                name: 'Звезда',
-                logo: 'https://i.imgur.com/qTXRK7T.png',
-                url: 'https://strm.yandex.ru/kal/zvezda/zvezda0.m3u8'
-            },
-            {
-                name: 'Россия 24',
-                logo: 'https://i.imgur.com/ZkU8W8M.png',
-                url: 'https://strm.yandex.ru/kal/russia24/russia240.m3u8'
-            },
-            {
-                name: 'Карусель',
-                logo: 'https://i.imgur.com/MqGf0qL.png',
-                url: 'https://strm.yandex.ru/kal/karusel/karusel0.m3u8'
-            },
-            {
-                name: 'МУЗ-ТВ',
-                logo: 'https://i.imgur.com/4vYw0xN.png',
-                url: 'https://strm.yandex.ru/kal/muztv/muztv0.m3u8'
-            }
-        ];
+const vid = document.getElementById('vid');
+const status = document.getElementById('status');
+const pipBtn = document.getElementById('pip-btn');
+let hls = null;
 
-        // ============ TELEGRAM ============
-        const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand();
-
-        // ============ ПЛЕЕР ============
-        const video = document.getElementById('video');
-        const pipBtn = document.getElementById('pip-btn');
-        const loading = document.getElementById('loading');
-        const errorMsg = document.getElementById('error-msg');
-        let hls = null;
-        let currentChannel = null;
-
-        // PiP
-        if (document.pictureInPictureEnabled) {
-            pipBtn.classList.add('show');
-        }
-
-        pipBtn.addEventListener('click', async () => {
-            try {
-                if (document.pictureInPictureElement) {
-                    await document.exitPictureInPicture();
-                    pipBtn.textContent = '📺 PiP';
-                } else {
-                    await video.requestPictureInPicture();
-                    pipBtn.textContent = '❌ Закрыть';
-                }
-            } catch (err) {
-                console.log('PiP error:', err);
-            }
-        });
-
-        video.addEventListener('leavepictureinpicture', () => {
+if (document.pictureInPictureEnabled) pipBtn.classList.add('show');
+pipBtn.onclick = async () => {
+    try {
+        if (document.pictureInPictureElement) {
+            await document.exitPictureInPicture();
             pipBtn.textContent = '📺 PiP';
-        });
-
-        function playChannel(channel) {
-            // Сброс
-            if (hls) {
-                hls.destroy();
-                hls = null;
-            }
-
-            currentChannel = channel;
-            video.src = '';
-            loading.style.display = 'block';
-            errorMsg.style.display = 'none';
-            video.style.opacity = '0.5';
-
-            console.log('Пытаюсь загрузить:', channel.name, channel.url);
-
-            if (Hls.isSupported()) {
-                hls = new Hls({
-                    enableWorker: true,
-                    lowLatencyMode: true,
-                    debug: false
-                });
-                hls.loadSource(channel.url);
-                hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    loading.style.display = 'none';
-                    video.style.opacity = '1';
-                    video.play().catch(e => {
-                        console.log('Autoplay blocked:', e);
-                        // Пробуем ещё раз с взаимодействием пользователя
-                    });
-                });
-                hls.on(Hls.Events.ERROR, (event, data) => {
-                    console.error('HLS error:', data);
-                    if (data.fatal) {
-                        loading.style.display = 'none';
-                        errorMsg.style.display = 'block';
-                        video.style.opacity = '0.3';
-                    }
-                });
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                // iOS
-                video.src = channel.url;
-                video.addEventListener('loadeddata', () => {
-                    loading.style.display = 'none';
-                    video.style.opacity = '1';
-                });
-                video.addEventListener('error', () => {
-                    loading.style.display = 'none';
-                    errorMsg.style.display = 'block';
-                    video.style.opacity = '0.3';
-                });
-                video.play().catch(e => console.log('Autoplay blocked:', e));
-            } else {
-                loading.style.display = 'none';
-                errorMsg.style.display = 'block';
-            }
-
-            // Подсветка активного канала
-            document.querySelectorAll('.channel').forEach(el => el.classList.remove('active'));
-            const activeEl = document.querySelector(`[data-channel="${channel.name}"]`);
-            if (activeEl) activeEl.classList.add('active');
-
-            tg.HapticFeedback.impactOccurred('light');
+        } else {
+            await vid.requestPictureInPicture();
+            pipBtn.textContent = '❌ Закрыть';
         }
+    } catch(e) {}
+};
+vid.onleavepictureinpicture = () => pipBtn.textContent = '📺 PiP';
 
-        // ============ РЕНДЕРИМ СПИСОК ============
-        const channelsContainer = document.getElementById('channels');
+function play(url) {
+    if (hls) { hls.destroy(); hls = null; }
+    status.textContent = 'Загрузка...';
+    status.style.display = 'block';
+    vid.style.opacity = '0.5';
+    vid.src = '';
 
-        channels.forEach(channel => {
-            const div = document.createElement('div');
-            div.className = 'channel';
-            div.setAttribute('data-channel', channel.name);
-            div.innerHTML = `
-                <div class="channel-logo">📺</div>
-                <div class="channel-info">
-                    <div class="channel-name">${channel.name}</div>
-                    <div class="channel-desc">Прямой эфир</div>
-                </div>
-                <div class="channel-status"></div>
-            `;
-            div.addEventListener('click', () => playChannel(channel));
-            channelsContainer.appendChild(div);
+    if (Hls.isSupported()) {
+        hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+        hls.loadSource(url);
+        hls.attachMedia(vid);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            status.style.display = 'none';
+            vid.style.opacity = '1';
+            vid.play().catch(() => {});
         });
-
-        // Автозапуск первого канала
-        if (channels.length > 0) {
-            playChannel(channels[0]);
-        }
-
-        // Кнопка назад
-        tg.BackButton.show();
-        tg.BackButton.onClick(() => {
-            tg.close();
+        hls.on(Hls.Events.ERROR, (e, d) => {
+            if (d.fatal) {
+                status.textContent = '⚠️ Ошибка загрузки';
+                vid.style.opacity = '0.3';
+            }
         });
-    </script>
+    } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+        vid.src = url;
+        vid.onloadeddata = () => { status.style.display = 'none'; vid.style.opacity = '1'; };
+        vid.onerror = () => { status.textContent = '⚠️ Ошибка'; vid.style.opacity = '0.3'; };
+        vid.play().catch(() => {});
+    } else {
+        status.textContent = '⚠️ Браузер не поддерживает HLS';
+    }
+}
+
+const container = document.getElementById('channels');
+channels.forEach((ch, i) => {
+    const div = document.createElement('div');
+    div.className = 'ch';
+    div.innerHTML = `<span>📺</span><div class="info"><div class="name">${ch.name}</div><div class="live">Прямой эфир</div></div><div class="dot"></div>`;
+    div.onclick = () => {
+        play(ch.url);
+        document.querySelectorAll('.ch').forEach(el => el.classList.remove('on'));
+        div.classList.add('on');
+        tg.HapticFeedback.impactOccurred('light');
+    };
+    container.appendChild(div);
+});
+
+// Автозапуск первого
+if (channels.length) {
+    play(channels[0].url);
+    container.firstChild.classList.add('on');
+}
+
+tg.BackButton.show();
+tg.BackButton.onClick(() => tg.close());
+</script>
 </body>
 </html>
